@@ -22,8 +22,8 @@ constexpr size_t array_size = 10000;
 typedef std::array<int, array_size> IntArray;
 
 //typy dla macierzy, 
-constexpr matrix_size m1_size = { 3,4 };
-constexpr matrix_size m2_size = { 4,3 };
+constexpr matrix_size m1_size = { 3,3 };
+constexpr matrix_size m2_size = { 3,3 };
 
 
 
@@ -97,34 +97,34 @@ queue create_device_queue() {
 
 
 /**
- * @brief funkcjia mno¿y przez siebie dwie macierze 
+ * @brief funkcjia mno¿y przez siebie dwie macierze
  * @tparam T typ danych przechowywanych przez macierz
- * @param m1_size wielkoœæ macierzy 1 
- * @param m2_size wielkoœæ macierzy 2 
+ * @param m1_size wielkoœæ macierzy 1
+ * @param m2_size wielkoœæ macierzy 2
  * @param m1 macierz 1
- * @param m2 macierz 2 
+ * @param m2 macierz 2
  * @param result macierz do której zostanie wpisany wynik
 */
 template <typename T >
 void matrix_mult(const matrix_size& m1_size, const matrix_size& m2_size, const std::vector<T>& m1, const std::vector<T>& m2, std::vector<T>& result)
 {
-	if (m1_size.hight != m2_size.width || m1_size.width != m2_size.hight)
-	{
-		throw "matrix have wrong sizes";// @TODO zmieniæ ten wyj¹tek na coœ lepszego
-	}
-	else if (m1.size() != m1_size.hight * m1_size.hight)
-	{
-		throw "matrix m1 is wrongly defined";
-	}
-	else if (m2.size() != m2_size.hight * m2_size.hight)
-	{
-		throw "matrix m2 is wrongly defined";
-	}
-	else if (m1_size.hight * m2_size.width != result.size())
-	{
-		throw "resutl matrix is wrongly defined";
-	}
-
+	//if (m1_size.hight != m2_size.width || m1_size.width != m2_size.hight)
+	//{
+	//	throw "matrix have wrong sizes";
+	//}
+	//else if (m1.size() != m1_size.width * m1_size.hight)
+	//{
+	//	throw "matrix m1 is wrongly defined";
+	//}
+	//else if (m2.size() != m2_size.width * m2_size.hight)
+	//{
+	//	throw "matrix m2 is wrongly defined";
+	//}
+	//else if (m1_size.hight * m2_size.width != result.size())
+	//{
+	//	throw "resutl matrix is wrongly defined";
+	//}
+	// @TODO zmieniæ te wyj¹teki na coœ lepszego
 	queue q = create_device_queue();
 #ifdef DEBUG
 	std::cout << "Device: " << q.get_device().get_info<info::device::name>()
@@ -132,128 +132,64 @@ void matrix_mult(const matrix_size& m1_size, const matrix_size& m2_size, const s
 #endif // DEBUG
 	matrix_size result_size = { m1_size.hight,m2_size.width };
 
-
 	range<1> num_items{ m1_size.width * m1_size.hight };
 	range<1> num_result{ m1_size.hight * m2_size.width };
+
 	buffer<T, 1> m1_buff(m1.data(), num_items);// ? const
 	buffer<T, 1> m2_buff(m2.data(), num_items);// ? const
 	buffer<T, 1> result_buff(result.data(), num_result);
+
 	q.submit([&](handler& h) {
-		auto m1_accesor = m1_buff.get_access<dp_read>(h);
-		auto m2_accesor = m2_buff.get_access<dp_read>(h);
+		auto m1_accesor = m1_buff.template get_access<dp_read>(h);
+		auto m2_accesor = m2_buff.template get_access<dp_read>(h);
 
-		auto result_accesor = result_buff.get_access<dp_write>(h);
+		auto result_accesor = result_buff.template get_access<access::mode::read_write>(h); // czu tutaj wystarczy tylko obs³uga write ?
 
-		h.parallel_for(num_items, [=](id<1> i) {
-			//sum_accessor[i] = addend_1_accessor[i] + addend_2_accessor[i];
-			auto h = i % result_size.width;
-			auto w = i - h;
-			for (size_t k = 0; k < m1_size.hight; k++) // czy to te¿ powinienem zrównolegliæ ?
+		h.parallel_for(num_result, [=](id<1> i) {
+			auto temp = i[0];
+			size_t w = i % result_size.width;
+			auto h = i != id<1>() ? (i[0] - w) / result_size.width : 0;
+			for (size_t k = 0; k < m1_size.width; k++) // czy to te¿ powinienem zrównolegliæ ?
 			{
-				result_accesor[i] = m1_accesor[h * m1_size.hight + k] * m2_accesor[k * m2_size.hight + w];
+				result_accesor[i] += m1_accesor[get_coord(m1_size, h, k)] * m2_accesor[get_coord(m2_size, k, w)];
 			}
 			});
 		});
 }
 
 
-
-
-
-
-//************************************
-// Compute vector addition in DPC++ on device: sum of the data is returned in
-// 3rd parameter "sum_parallel"
-//************************************
-void VectorAddInDPCPP(const IntArray& addend_1, const IntArray& addend_2,
-	IntArray& sum_parallel) {
-	queue q = create_device_queue();
-
-	// print out the device information used for the kernel code
-	std::cout << "Device: " << q.get_device().get_info<info::device::name>()
-		<< std::endl;
-
-	// create the range object for the arrays managed by the buffer
-	range<1> num_items{ array_size };
-
-	// create buffers that hold the data shared between the host and the devices.
-	//    1st parameter: pointer of the data;
-	//    2nd parameter: size of the data
-	// the buffer destructor is responsible to copy the data back to host when it
-	// goes out of scope.
-	buffer<int, 1> addend_1_buf(addend_1.data(), num_items);
-	buffer<int, 1> addend_2_buf(addend_2.data(), num_items);
-	buffer<int, 1> sum_buf(sum_parallel.data(), num_items);
-
-	// submit a command group to the queue by a lambda function that
-	// contains the data access permission and device computation (kernel)
-	q.submit([&](handler& h) {
-		// create an accessor for each buffer with access permission: read, write or
-		// read/write the accessor is the only mean to access the memory in the
-		// buffer.
-		auto addend_1_accessor = addend_1_buf.get_access<dp_read>(h);
-		auto addend_2_accessor = addend_2_buf.get_access<dp_read>(h);
-
-		// the sum_accessor is used to store (with write permision) the sum data
-		auto sum_accessor = sum_buf.get_access<dp_write>(h);
-
-		// Use parallel_for to run array addition in parallel on device. This
-		// executes the kernel.
-		//    1st parameter is the number of work items to use
-		//    2nd parameter is the kernel, a lambda that specifies what to do per
-		//    work item. the parameter of the lambda is the work item id of the
-		//    current item.
-		// DPC++ supports unnamed lambda kernel by default.
-		h.parallel_for(num_items, [=](id<1> i) {
-			sum_accessor[i] = addend_1_accessor[i] + addend_2_accessor[i];
-			});
-		});
-
-	// q.submit() is an asynchronously call. DPC++ runtime enqueues and runs the
-	// kernel asynchronously. at the end of the DPC++ scope the buffer's data is
-	// copied back to the host.
-}
-
-//************************************
-// Demonstrate summation of arrays both in scalar on CPU and parallel on device
-//************************************
 int main() {
-	 //create int array objects with "array_size" to store the input and output
-	 //data
-	//IntArray addend_1, addend_2, sum_scalar, sum_parallel;
 
-	//// Initialize input arrays with values from 0 to array_size-1
-	//initialize_array(addend_1);
-	//initialize_array(addend_2);
 
-	// Compute vector addition in DPC++
-	//VectorAddInDPCPP(addend_1, addend_2, sum_parallel);
+	std::vector<int> m1(m1_size.hight * m1_size.width, 0);
+	std::vector<int> m2(m2_size.hight * m2_size.width, 0);
+	std::vector<int> result(m1_size.hight * m2_size.width, 0);
+	std::cout << "sdafsdsdfsdfsdfsdffdsdfsdfdfm1:" << std::endl;
 
-	 //Computes the sum of two arrays in scalar for validation
-	//for (size_t i = 0; i < sum_scalar.size(); i++)
-	//	sum_scalar[i] = addend_1[i] + addend_2[i];
-
-	 //Verify that the two sum arrays are equal
-	//for (size_t i = 0; i < sum_parallel.size(); i++) {
-	//	if (sum_parallel[i] != sum_scalar[i]) {
-	//		std::cout << "fail" << std::endl;
-	//		return -1;
-	//	}
-	//}
-	//std::cout << "success" << std::endl;
-
-	std::vector<int> m1(m1_size.width * m1_size.width,0);
-	std::vector<int> m2(m2_size.width * m2_size.width, 0);
-	std::vector<int> result(m1_size.width * m2_size.width, 0);
 	init_matrix(m1_size, m1);
 	init_matrix(m2_size, m2);
 	std::cout << "m1:" << std::endl;
 	print_matrix(m1_size, m1);
 
 	std::cout << "m2:" << std::endl;
-	print_matrix(m1_size, m1);
+	print_matrix(m2_size, m2);
 
 	matrix_mult(m1_size, m2_size, m1, m2, result);
+	//matrix_size result_size = { m1_size.hight,m2_size.width };
+	//for (size_t i = 0; i < result.size(); i++)
+	//{
+	//	auto w = i esult_size.width;
+	//	auto h = i != 0 ? (i - w) / result_size.width : 0;
+	//	for (size_t k = 0; k < m1_size.width; k++) // czy to te¿ powinienem zrównolegliæ ?
+	//	{
+	//		result[i] += m1[get_coord(m1_size, h, k)] * m2[get_coord(m2_size, k, w)];
+	//	}
+	//}
+
+
+
+
+
 
 	std::cout << "wynik:" << std::endl;
 	print_matrix({ m1_size.hight,m2_size.width }, result);
