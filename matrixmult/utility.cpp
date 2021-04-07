@@ -29,7 +29,7 @@ void init_matrix(matrix_size size, std::vector<T>& matrix)
 		for (size_t k = 0; k < size.width; k++)
 		{
 			// tymczasowe rozwi¹zanie potem chyba lepiej bêdzie to ³adowaæ z pliku
-			matrix[i * size.hight + k] = i * k;
+			matrix[i * size.width+ k] = i * 10 + k;
 		}
 	}
 }
@@ -47,7 +47,7 @@ void print_matrix(matrix_size size, std::vector<T>& matrix)
 	{
 		for (size_t k = 0; k < size.width; k++)
 		{
-			std::cout << matrix[i * size.hight + k] << ", ";
+			std::cout << matrix[i * size.width + k] << ", ";
 		}
 		std::cout << std::endl;
 	}
