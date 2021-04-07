@@ -108,22 +108,22 @@ queue create_device_queue() {
 template <typename T >
 void matrix_mult(const matrix_size& m1_size, const matrix_size& m2_size, const std::vector<T>& m1, const std::vector<T>& m2, std::vector<T>& result)
 {
-	//if (m1_size.hight != m2_size.width || m1_size.width != m2_size.hight)
-	//{
-	//	throw "matrix have wrong sizes";
-	//}
-	//else if (m1.size() != m1_size.width * m1_size.hight)
-	//{
-	//	throw "matrix m1 is wrongly defined";
-	//}
-	//else if (m2.size() != m2_size.width * m2_size.hight)
-	//{
-	//	throw "matrix m2 is wrongly defined";
-	//}
-	//else if (m1_size.hight * m2_size.width != result.size())
-	//{
-	//	throw "resutl matrix is wrongly defined";
-	//}
+	if (m1_size.hight != m2_size.width )
+	{
+		throw "matrix have wrong sizes";
+	}
+	else if (m1.size() != m1_size.width * m1_size.hight)
+	{
+		throw "matrix m1 is wrongly defined";
+	}
+	else if (m2.size() != m2_size.width * m2_size.hight)
+	{
+		throw "matrix m2 is wrongly defined";
+	}
+	else if (m1_size.hight * m2_size.width != result.size())
+	{
+		throw "resutl matrix is wrongly defined";
+	}
 	// @TODO zmieniæ te wyj¹teki na coœ lepszego
 	queue q = create_device_queue();
 #ifdef DEBUG
@@ -175,21 +175,6 @@ int main() {
 	print_matrix(m2_size, m2);
 
 	matrix_mult(m1_size, m2_size, m1, m2, result);
-	//matrix_size result_size = { m1_size.hight,m2_size.width };
-	//for (size_t i = 0; i < result.size(); i++)
-	//{
-	//	auto w = i esult_size.width;
-	//	auto h = i != 0 ? (i - w) / result_size.width : 0;
-	//	for (size_t k = 0; k < m1_size.width; k++) // czy to te¿ powinienem zrównolegliæ ?
-	//	{
-	//		result[i] += m1[get_coord(m1_size, h, k)] * m2[get_coord(m2_size, k, w)];
-	//	}
-	//}
-
-
-
-
-
 
 	std::cout << "wynik:" << std::endl;
 	print_matrix({ m1_size.hight,m2_size.width }, result);
